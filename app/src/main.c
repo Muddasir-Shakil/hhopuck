@@ -12,7 +12,7 @@
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
 const struct device *hx711_dev;
-
+static struct sensor_value bottle_weight;
 void set_rate(enum hx711_rate rate)
 {
 	static struct sensor_value rate_val;
@@ -36,10 +36,25 @@ void measure(void)
 		sensor_channel_get(hx711_dev, HX711_SENSOR_CHAN_WEIGHT, &weight);
 
 		struct hx711_data *data = hx711_dev->data;
-		LOG_INF("Weight: %d.%06d grams, ", weight.val1, weight.val2);
+		LOG_INF("Weight: %d grams, ", weight.val1);
+		double volume_l = (weight.val1 - bottle_weight.val1) / 1000.0;
+		LOG_INF("Water Volume: %.3f L", volume_l);
 	}
 }
 
+void measureBottleEmptyWeight(void)
+{
+	int ret;
+
+	ret = sensor_sample_fetch(hx711_dev);
+	if (ret != 0) {
+		LOG_ERR("Cannot take measurement: %d", ret);
+	} else {
+		sensor_channel_get(hx711_dev, HX711_SENSOR_CHAN_WEIGHT, &bottle_weight);
+		struct hx711_data *data = hx711_dev->data;
+		LOG_INF("Bottle Weight: %d grams, ", bottle_weight.val1);
+	}
+}
 void main(void)
 {
 	int calibration_weight = 1863; // grams
@@ -69,7 +84,13 @@ void main(void)
 	}
 	avia_hx711_tare(hx711_dev, 40);
 
+	LOG_INF("Add Bottle empty weight...");
+	for (int i = 10; i >= 0; i--) {
+		LOG_INF(" %d..", i);
+		k_msleep(1000);
+	}
 
+	measureBottleEmptyWeight();
 
 	while (true) {
 		k_msleep(1000);
