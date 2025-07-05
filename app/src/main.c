@@ -34,30 +34,42 @@ void measure(void)
 		LOG_ERR("Cannot take measurement: %d", ret);
 	} else {
 		sensor_channel_get(hx711_dev, HX711_SENSOR_CHAN_WEIGHT, &weight);
-		LOG_INF("Weight: %d.%06d grams", weight.val1, weight.val2);
+
+		struct hx711_data *data = hx711_dev->data;
+		LOG_INF("Weight: %d.%06d grams, ", weight.val1, weight.val2);
 	}
 }
 
 void main(void)
 {
-	int calibration_weight = 100; // grams
+	int calibration_weight = 1863; // grams
 	hx711_dev = DEVICE_DT_GET_ANY(avia_hx711);
 	__ASSERT(hx711_dev == NULL, "Failed to get device binding");
 
 	LOG_INF("Device is %p, name is %s", hx711_dev, hx711_dev->name);
 	LOG_INF("Calculating offset...");
-	avia_hx711_tare(hx711_dev, 5);
+	int offest =  avia_hx711_tare(hx711_dev, 40);
 
 	LOG_INF("Waiting for known weight of %d grams...",
 		calibration_weight);
 
-	for (int i = 5; i >= 0; i--) {
+	for (int i = 10; i >= 0; i--) {
 		LOG_INF(" %d..", i);
 		k_msleep(1000);
 	}
 
 	LOG_INF("Calculating slope...");
-	avia_hx711_calibrate(hx711_dev, calibration_weight, 5);
+	struct sensor_value slope = avia_hx711_calibrate(hx711_dev, calibration_weight, 40);
+	LOG_INF("Slope: %d.%06d Offest: %d", slope.val1, slope.val2, offest);
+
+	LOG_INF("Remove Calibration weight...");
+	for (int i = 10; i >= 0; i--) {
+		LOG_INF(" %d..", i);
+		k_msleep(1000);
+	}
+	avia_hx711_tare(hx711_dev, 40);
+
+
 
 	while (true) {
 		k_msleep(1000);
